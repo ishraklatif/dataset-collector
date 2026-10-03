@@ -49,7 +49,7 @@ def create_app(config=None):
                       ALLOW_LOCAL_DATABASE=os.getenv('ALLOW_LOCAL_DATABASE') == '1',
                       DB_BYTE_LIMIT=int(os.getenv('DB_BYTE_LIMIT', '1073741824')),
                       ARCHIVE_PROMPT_RATIO=float(os.getenv('ARCHIVE_PROMPT_RATIO', '0.95')),
-                      MAX_ARCHIVE_SAMPLES=int(os.getenv('MAX_ARCHIVE_SAMPLES', '50')),
+                      MAX_ARCHIVE_SAMPLES=int(os.getenv('MAX_ARCHIVE_SAMPLES', '20')),
                       MAX_ARCHIVE_BYTES=int(os.getenv('MAX_ARCHIVE_BYTES', '157286400')),
                       GOOGLE_OAUTH_CLIENT_ID=os.getenv('GOOGLE_OAUTH_CLIENT_ID', ''),
                       GOOGLE_OAUTH_CLIENT_SECRET=os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', ''),

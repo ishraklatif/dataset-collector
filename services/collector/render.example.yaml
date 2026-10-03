@@ -28,7 +28,7 @@ services:
       - key: ARCHIVE_PROMPT_RATIO
         value: '0.95'
       - key: MAX_ARCHIVE_SAMPLES
-        value: '50'
+        value: '20'
       - key: MAX_ARCHIVE_BYTES
         value: '157286400'
       - key: GOOGLE_OAUTH_CLIENT_ID
