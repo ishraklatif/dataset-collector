@@ -30,7 +30,7 @@ struct CollectorView:View {
                     LivePreview(camera:store.camera).opacity(store.image==nil && store.review==nil ? 1:0)
                     if let image=store.image {
                         BoxEditor(image:image,annotations:store.annotations,selected:store.selected,editable:store.editable,adding:store.addMode,addingVertex:store.addVertexMode,draftPoints:store.polygonDraft,onSelect:{store.selected=$0},onEdit:store.setBoxes,onDraftChange:{store.polygonDraft=$0})
-                    } else if store.review != nil {
+                    } else if store.review?.archived_at != nil {
                         Text("Image archived to Google Drive. Open the Drive copy to view it.").foregroundStyle(.white).padding().background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius:12))
                     } else if !store.camera.available {
                         Text(store.camera.problem ?? "Preparing camera…").padding().background(.ultraThinMaterial).clipShape(RoundedRectangle(cornerRadius:12))
