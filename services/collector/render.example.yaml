@@ -30,7 +30,7 @@ services:
       - key: MAX_ARCHIVE_SAMPLES
         value: '20'
       - key: MAX_ARCHIVE_BYTES
-        value: '157286400'
+        value: '268435456'
       - key: GOOGLE_OAUTH_CLIENT_ID
         sync: false
       - key: GOOGLE_OAUTH_CLIENT_SECRET
