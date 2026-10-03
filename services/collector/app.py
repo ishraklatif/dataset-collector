@@ -137,7 +137,11 @@ def create_app(config=None):
                 conn.execute('INSERT INTO annotation_polygons(revision_id,ordinal,points) VALUES(%s,%s,%s)', (revision,index,Jsonb(box['points'])))
         return revision
 
-    def approved_unarchived_samples(conn, project, limit):
+    def approved_unarchived_samples(conn, project, limit, strict=True):
+        # strict=True (freeze(): one dataset version must contain every approved
+        # sample, so exceeding the limit is a real error. strict=False (archive):
+        # intentionally batches - take the first `limit` and leave the rest for
+        # the next call, never error just because more remain.
         rows = conn.execute('''SELECT s.id,s.session_id,s.captured_at,s.current_revision,i.sha256,i.width,i.height,i.byte_count,
             r.explicit_negative,p.model_hash,p.proposals,c.specimen_id,c.scene_tags,sp.designation,sp.name AS specimen_name
             FROM samples s JOIN sample_images i ON i.sample_id=s.id JOIN annotation_revisions r ON r.id=s.current_revision
@@ -145,7 +149,9 @@ def create_app(config=None):
             WHERE s.project_id=%s AND s.deleted_at IS NULL AND r.status='approved' AND i.archived_at IS NULL
             ORDER BY s.id LIMIT %s''', (project, limit+1)).fetchall()
         if len(rows) > limit:
-            raise Invalid('Approved collection exceeds the configured sample limit for this operation')
+            if strict:
+                raise Invalid('Approved collection exceeds the configured sample limit for this operation')
+            rows = rows[:limit]
         for row in rows:
             row['annotations'] = annotations(conn, row['current_revision'])
             boxes(row['annotations'], row['width'], row['height'])
@@ -424,7 +430,7 @@ def create_app(config=None):
                 if not authorized(conn, project):
                     export_slots.release()
                     return jsonify(error='Project unavailable'), 404
-                rows = approved_unarchived_samples(conn, project, app.config['MAX_ARCHIVE_SAMPLES'])
+                rows = approved_unarchived_samples(conn, project, app.config['MAX_ARCHIVE_SAMPLES'], strict=False)
                 if not rows:
                     raise Invalid('No newly approved, unarchived samples to archive')
                 sample_ids = [r['id'] for r in rows]

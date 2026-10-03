@@ -317,3 +317,28 @@ def test_archive_to_drive_requires_configuration(env):
     client,meta=polygon_sample(env)
     response=client.post('/v1/projects/'+env[2]+'/archive',headers=AUTH)
     assert response.status_code==503
+
+def test_archive_to_drive_batches_instead_of_erroring_when_more_remain(env,monkeypatch):
+    # Regression test: more approved samples than MAX_ARCHIVE_SAMPLES must not
+    # error - it should archive exactly one batch and leave the rest for the
+    # next call (this previously 400'd with "exceeds the configured sample
+    # limit", the same strict/non-strict mix-up freeze() correctly uses).
+    app,dsn,project,_,_=env
+    configure_drive(app)
+    app.config['MAX_ARCHIVE_SAMPLES']=2
+    monkeypatch.setattr(app_module,'DriveClient',FakeDriveClient)
+    ids=[polygon_sample(env)[1]['id'] for _ in range(3)]
+    client=app.test_client()
+    response=client.post('/v1/projects/'+project+'/archive',headers=AUTH)
+    assert response.status_code==201,response.json
+    assert response.json['samples']==2
+    with psycopg.connect(dsn) as conn:
+        archived=conn.execute('SELECT sample_id FROM sample_images WHERE archived_at IS NOT NULL').fetchall()
+        assert len(archived)==2
+    # The remaining sample archives cleanly on a follow-up call.
+    response=client.post('/v1/projects/'+project+'/archive',headers=AUTH)
+    assert response.status_code==201,response.json
+    assert response.json['samples']==1
+    with psycopg.connect(dsn) as conn:
+        remaining=conn.execute('SELECT count(*) FROM sample_images WHERE archived_at IS NULL').fetchone()[0]
+        assert remaining==0
