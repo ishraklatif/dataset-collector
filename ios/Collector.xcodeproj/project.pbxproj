@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0AA681B3A665816214B9861B /* CollectorDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46A3C1EBBC4B1495992D956D /* CollectorDetector.swift */; };
+		D1592EF000EC8B035D355A2E /* CollectorSegmentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6257AE30ED4A5644EE00D285 /* CollectorSegmentation.swift */; };
 		11382325F21DEA0B0FFB2790 /* CollectorTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7587D6FB627B57F6096B283 /* CollectorTypes.swift */; };
 		3055F100B6C1034A4C731FB9 /* CollectorGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4860472424069522E37C530B /* CollectorGeometryTests.swift */; };
 		3E4697E89DD30D01CA92AF63 /* libPods-Collector.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 0681DC4DCD7D3CB14559C00F /* libPods-Collector.a */; };
@@ -16,7 +17,7 @@
 		83C15BFF4279F15DB7BC2983 /* CollectorAPI.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98646DAABBF7642BEDA308C /* CollectorAPI.swift */; };
 		9AA8D0334D919891272C6BBE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D86EC365867819C83F6E57E /* AppDelegate.swift */; };
 		9BF86D5A2A843C65F99B7E8C /* BoxEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 28A725755A731D61BB080B31 /* BoxEditor.swift */; };
-		A9BD73AFCBE5419B9DE94B1E /* yolo11n-trained-v1.tflite in Resources */ = {isa = PBXBuildFile; fileRef = F61D05A92D0CE9513683E459 /* yolo11n-trained-v1.tflite */; };
+		D48D464836315A07ADAAA334 /* yolo11n-seg-trained-v1.tflite in Resources */ = {isa = PBXBuildFile; fileRef = A36AB3696C88BEB6670E04E3 /* yolo11n-seg-trained-v1.tflite */; };
 		B89B1BE195802CEEECF0616B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C38F0E25075735F0021AE11B /* Foundation.framework */; };
 		C2ED29C5342D351CE45634CC /* CollectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3782B66AFC721784EE883AA /* CollectorView.swift */; };
 		DD8A38D4A7A733FA2D13E95D /* CollectorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FE2D8E4988FB9394A9E7F5C /* CollectorStore.swift */; };
@@ -41,6 +42,7 @@
 		3D86EC365867819C83F6E57E /* AppDelegate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		4566233DE2A7514A7490F0E2 /* Pods-CollectorTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-CollectorTests.debug.xcconfig"; path = "Target Support Files/Pods-CollectorTests/Pods-CollectorTests.debug.xcconfig"; sourceTree = "<group>"; };
 		46A3C1EBBC4B1495992D956D /* CollectorDetector.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorDetector.swift; sourceTree = "<group>"; };
+		6257AE30ED4A5644EE00D285 /* CollectorSegmentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorSegmentation.swift; sourceTree = "<group>"; };
 		4860472424069522E37C530B /* CollectorGeometryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorGeometryTests.swift; sourceTree = "<group>"; };
 		4FE2D8E4988FB9394A9E7F5C /* CollectorStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorStore.swift; sourceTree = "<group>"; };
 		57E711CF94C8D29BEA80297A /* CollectorCamera.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorCamera.swift; sourceTree = "<group>"; };
@@ -52,7 +54,7 @@
 		C38F0E25075735F0021AE11B /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		D3782B66AFC721784EE883AA /* CollectorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorView.swift; sourceTree = "<group>"; };
 		E98646DAABBF7642BEDA308C /* CollectorAPI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CollectorAPI.swift; sourceTree = "<group>"; };
-		F61D05A92D0CE9513683E459 /* yolo11n-trained-v1.tflite */ = {isa = PBXFileReference; includeInIndex = 1; name = "yolo11n-trained-v1.tflite"; path = "Assets/yolo11n-trained-v1.tflite"; sourceTree = "<group>"; };
+		A36AB3696C88BEB6670E04E3 /* yolo11n-seg-trained-v1.tflite */ = {isa = PBXFileReference; includeInIndex = 1; name = "yolo11n-seg-trained-v1.tflite"; path = "Assets/yolo11n-seg-trained-v1.tflite"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,10 +87,11 @@
 				E98646DAABBF7642BEDA308C /* CollectorAPI.swift */,
 				57E711CF94C8D29BEA80297A /* CollectorCamera.swift */,
 				46A3C1EBBC4B1495992D956D /* CollectorDetector.swift */,
+				6257AE30ED4A5644EE00D285 /* CollectorSegmentation.swift */,
 				4FE2D8E4988FB9394A9E7F5C /* CollectorStore.swift */,
 				A7587D6FB627B57F6096B283 /* CollectorTypes.swift */,
 				D3782B66AFC721784EE883AA /* CollectorView.swift */,
-				F61D05A92D0CE9513683E459 /* yolo11n-trained-v1.tflite */,
+				A36AB3696C88BEB6670E04E3 /* yolo11n-seg-trained-v1.tflite */,
 			);
 			name = Collector;
 			path = Collector;
@@ -229,7 +232,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A9BD73AFCBE5419B9DE94B1E /* yolo11n-trained-v1.tflite in Resources */,
+				D48D464836315A07ADAAA334 /* yolo11n-seg-trained-v1.tflite in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -317,6 +320,7 @@
 				83C15BFF4279F15DB7BC2983 /* CollectorAPI.swift in Sources */,
 				DD8E5EAE9E926B59A9B36236 /* CollectorCamera.swift in Sources */,
 				0AA681B3A665816214B9861B /* CollectorDetector.swift in Sources */,
+				D1592EF000EC8B035D355A2E /* CollectorSegmentation.swift in Sources */,
 				DD8A38D4A7A733FA2D13E95D /* CollectorStore.swift in Sources */,
 				11382325F21DEA0B0FFB2790 /* CollectorTypes.swift in Sources */,
 				C2ED29C5342D351CE45634CC /* CollectorView.swift in Sources */,

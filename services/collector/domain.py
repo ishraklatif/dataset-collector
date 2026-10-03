@@ -5,9 +5,10 @@ import math
 from PIL import Image, UnidentifiedImageError
 
 CLASSES = ['collection_tube', 'kit_package', 'reply_paid_envelope', 'toilet_liner', 'ziplock_bag']
-MODEL_HASH = '455888c9b0bc769b0a6307c324ed59879b706cab6283742d9f5aaf7097bf4937'
-MODEL_METADATA = {'schema_version': 1, 'class_map': CLASSES, 'class_map_version': 1,
-                  'input': [1, 320, 320, 3], 'output': [1, 9, 2100],
+MODEL_HASH = 'dd65049a00a545d1744f693afc611931c7bb4e470c4248d8072c1fc2e168913c'
+MODEL_METADATA = {'schema_version': 2, 'class_map': CLASSES, 'class_map_version': 1,
+                  'task': 'instance-segmentation', 'input': [1, 320, 320, 3],
+                  'output': {'detections': [1, 41, 2100], 'mask_prototypes_nhwc': [1, 80, 80, 32]},
                   'preprocessing_version': 'upright-jpeg-rgb-contain-gray114-v1',
                   'coordinate_units': 'model_input_pixels', 'proposal_floor': 0.5, 'nms_iou': 0.45}
 

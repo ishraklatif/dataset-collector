@@ -8,7 +8,7 @@ Dir.glob(File.join(root, 'Collector', '*.swift')).sort.each do |path|
   ref = group.new_file(File.basename(path))
   target.source_build_phase.add_file_reference(ref)
 end
-asset = group.new_file('Assets/yolo11n-trained-v1.tflite')
+asset = group.new_file('Assets/yolo11n-seg-trained-v1.tflite')
 target.resources_build_phase.add_file_reference(asset)
 target.build_configurations.each do |c|
   c.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = 'com.eachpathhealth.arcollector'

@@ -2,7 +2,7 @@ import Foundation
 import CoreGraphics
 
 let collectorClasses = ["collection_tube", "kit_package", "reply_paid_envelope", "toilet_liner", "ziplock_bag"]
-let collectorModelHash = "455888c9b0bc769b0a6307c324ed59879b706cab6283742d9f5aaf7097bf4937"
+let collectorModelHash = "dd65049a00a545d1744f693afc611931c7bb4e470c4248d8072c1fc2e168913c"
 let collectorPreprocessing = "upright-jpeg-rgb-contain-gray114-v1"
 
 struct AnnotationPoint:Codable,Equatable {
@@ -53,36 +53,69 @@ struct Letterbox {
         value.height=b.height*source.height/rendered.height
         return value.clipped(to:source)
     }
+    // Reverses the same still-image letterbox for a polygon's points (not just a box),
+    // clamping each point into the source image bounds independently - domain.py's
+    // server-side validation already requires every point within [0,width]x[0,height].
+    func canonicalPoints(_ points:[CGPoint])->[CGPoint] {
+        points.map {p in
+            let x=(p.x-offset.x)*source.width/rendered.width
+            let y=(p.y-offset.y)*source.height/rendered.height
+            return CGPoint(x:min(max(x,0),source.width),y:min(max(y,0),source.height))
+        }
+    }
 }
 
-// Port of the reference decoder: channel-major [1,9,2100], argmax and same-class NMS.
-// Keep geometry for human review and reverse the exact still-image letterbox.
-func decodeCollector(_ values: [Float],source: CGSize) throws -> [Annotation] {
-    guard values.count==9*2100 else { throw CollectorError.message("Unexpected model output") }
+// Decodes a yolo11n-seg output: channel-major main tensor [1,41,2100] (4 box
+// + 5 class scores + 32 mask coefficients per anchor) plus the shared NHWC
+// prototype tensor [1,80,80,32]. Same argmax/confidence gate and same-class
+// NMS as the former plain-detector decoder, but each surviving detection's
+// mask coefficients are combined with the prototypes (CollectorSegmentation)
+// into a traced, simplified outline - so proposals arrive as draft polygons,
+// not boxes, directly usable in BoxEditor's existing polygon editing tools.
+private struct DetectionCandidate {
+    let classID:Int
+    let confidence:Double
+    let box:CGRect
+    let coeffs:[Float]
+}
+func decodeCollector(_ main:[Float],proto:[Float],source:CGSize) throws -> [Annotation] {
+    guard main.count==41*2100 else { throw CollectorError.message("Unexpected model output") }
+    guard proto.count==80*80*32 else { throw CollectorError.message("Unexpected model output") }
     let geometry=Letterbox(source)
-    var candidates:[Annotation]=[]
+    var candidates:[DetectionCandidate]=[]
     for a in 0..<2100 {
-        let scores=(0..<5).map { values[(4+$0)*2100+a] }
+        let scores=(0..<5).map { main[(4+$0)*2100+a] }
         guard let best=scores.indices.filter({ scores[$0].isFinite }).max(by:{ scores[$0]<scores[$1] }), scores[best]>=0.5 else { continue }
-        let cx=Double(values[a]),cy=Double(values[2100+a]),w=Double(values[4200+a]),h=Double(values[6300+a])
-        if [cx,cy,w,h].allSatisfy(\.isFinite), w>0, h>0 {
-            candidates.append(Annotation(classID:best,x:cx-w/2,y:cy-h/2,width:w,height:h,confidence:Double(scores[best])))
-        }
+        let cx=Double(main[a]),cy=Double(main[2100+a]),w=Double(main[4200+a]),h=Double(main[6300+a])
+        guard [cx,cy,w,h].allSatisfy(\.isFinite), w>0, h>0 else { continue }
+        let coeffs=(0..<32).map { main[(9+$0)*2100+a] }
+        candidates.append(DetectionCandidate(classID:best,confidence:Double(scores[best]),box:CGRect(x:cx-w/2,y:cy-h/2,width:w,height:h),coeffs:coeffs))
     }
     func iou(_ a:CGRect,_ b:CGRect)->Double {
         let r=a.intersection(b); let area=r.isNull ? 0:r.width*r.height
         let union=a.width*a.height+b.width*b.height-area
         return union>0 ? area/union:0
     }
-    var kept:[Annotation]=[]
+    var kept:[DetectionCandidate]=[]
     for c in 0..<5 {
-        var accepted:[Annotation]=[]
-        for b in candidates.filter({$0.classID==c}).sorted(by:{($0.confidence ?? 0)>($1.confidence ?? 0)}) {
-            if !accepted.contains(where:{iou($0.rect,b.rect)>0.45}) { accepted.append(b) }
+        var accepted:[DetectionCandidate]=[]
+        for cand in candidates.filter({$0.classID==c}).sorted(by:{$0.confidence>$1.confidence}) {
+            if !accepted.contains(where:{iou($0.box,cand.box)>0.45}) { accepted.append(cand) }
         }
-        kept += accepted.compactMap { geometry.canonical($0) }
+        kept += accepted
     }
-    return Array(kept.prefix(200))
+    kept = Array(kept.prefix(200))
+
+    var results:[Annotation]=[]
+    for cand in kept {
+        guard let maskPoints=CollectorSegmentation.polygon(coeffs:cand.coeffs,proto:proto) else { continue }
+        let canonicalPoints=geometry.canonicalPoints(maskPoints)
+        let xs=canonicalPoints.map(\.x),ys=canonicalPoints.map(\.y)
+        guard let left=xs.min(),let right=xs.max(),let top=ys.min(),let bottom=ys.max(),right>left,bottom>top else { continue }
+        let points=canonicalPoints.map {AnnotationPoint(x:Double($0.x),y:Double($0.y))}
+        results.append(Annotation(classID:cand.classID,x:Double(left),y:Double(top),width:Double(right-left),height:Double(bottom-top),points:points,confidence:cand.confidence))
+    }
+    return results
 }
 
 enum CollectorError:LocalizedError {
