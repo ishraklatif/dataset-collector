@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements-prod.txt \
     && groupadd --system collector \
     && useradd --system --gid collector --home-dir /app collector
 
-COPY app.py domain.py gunicorn.conf.py ./
+COPY app.py domain.py drive.py gunicorn.conf.py ./
 COPY migrations ./migrations
 
 USER collector
