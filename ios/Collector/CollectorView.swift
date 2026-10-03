@@ -182,7 +182,7 @@ struct CollectorView:View {
                 Button("Refresh") {Task {await store.refreshConnection()}}
             }
             Section("Samples") {
-                ForEach(store.samples) {s in Button {Task {await store.open(s.id);if store.review != nil {sheet=nil}}} label: {VStack(alignment:.leading) {Text((s.status == "approved" ? "Approved":"Pending review")+(s.archived_at != nil ? " · Archived to Drive":""));Text(String(s.id.prefix(8))+" · session "+String(s.session_id.prefix(8))).font(.caption).foregroundStyle(.secondary)}}}
+                ForEach(store.samples) {s in Button {Task {await store.open(s.id);if store.review != nil {sheet=nil}}} label: {VStack(alignment:.leading) {Text((s.status == "approved" ? "Approved":"Pending review")+(s.archived_at != nil ? " · Archived to Drive":""));Text(s.labels).font(.caption);Text(String(s.id.prefix(8))+" · session "+String(s.session_id.prefix(8))).font(.caption).foregroundStyle(.secondary)}}}
                 if store.page?.next_offset != nil {Button("Load more") {Task {await store.loadMore()}}}
             }
             Section("Versioned exports") {

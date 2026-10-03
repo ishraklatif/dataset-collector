@@ -95,7 +95,12 @@ struct Health:Codable { let projects:[Project]; let max_image_bytes:Int; let max
 struct CaptureSession:Codable,Identifiable { let id:String; let name:String; let specimen_name:String; let designation:String }
 struct SampleSummary:Codable,Identifiable {
     let id:String; let session_id:String; let current_revision:String; let status:String
-    let explicit_negative:Bool; let width:Int; let height:Int; let archived_at:String?
+    let explicit_negative:Bool; let width:Int; let height:Int; let archived_at:String?; let class_ids:[Int]?
+    var labels:String {
+        let names=(class_ids ?? []).compactMap {collectorClasses.indices.contains($0) ? collectorClasses[$0]:nil}
+        if names.isEmpty {return explicit_negative ? "No objects":"Unlabeled"}
+        return names.joined(separator:", ")
+    }
 }
 struct SampleDetail:Codable {
     let id:String; let current_revision:String; let status:String; let explicit_negative:Bool

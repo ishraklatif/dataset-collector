@@ -331,7 +331,8 @@ def create_app(config=None):
         with pool.connection() as conn:
             if not authorized(conn,project):
                 return jsonify(error='Project unavailable'), 404
-            rows = conn.execute('''SELECT s.id,s.session_id,s.captured_at,s.current_revision,r.status,r.explicit_negative,i.width,i.height,i.sha256,i.archived_at
+            rows = conn.execute('''SELECT s.id,s.session_id,s.captured_at,s.current_revision,r.status,r.explicit_negative,i.width,i.height,i.sha256,i.archived_at,
+                COALESCE((SELECT array_agg(DISTINCT a.class_id ORDER BY a.class_id) FROM annotations a WHERE a.revision_id=s.current_revision),ARRAY[]::integer[]) AS class_ids
                 FROM samples s JOIN annotation_revisions r ON r.id=s.current_revision JOIN sample_images i ON i.sample_id=s.id
                 WHERE s.project_id=%s AND s.deleted_at IS NULL ORDER BY s.created_at DESC,s.id LIMIT 50 OFFSET %s''', (project,offset)).fetchall()
             counts = conn.execute('SELECT r.status,count(*) AS count FROM samples s JOIN annotation_revisions r ON r.id=s.current_revision WHERE s.project_id=%s AND s.deleted_at IS NULL GROUP BY r.status', (project,)).fetchall()
