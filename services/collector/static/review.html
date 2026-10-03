@@ -361,7 +361,7 @@ function cancelPolygon() { polygonDraft = []; addMode = false; updateToolbar(); 
 
 function undoPolygonPoint() {
   if (!editable() || !polygonDraft.length) return;
-  polygonDraft.pop(); render();
+  polygonDraft.pop(); updateToolbar(); render();
 }
 
 function finishPolygon() {
@@ -445,6 +445,7 @@ async function discardSample() {
     currentSample = null; annotations = []; selectedIndex = null;
     document.getElementById('placeholder').style.display = 'flex';
     busy = false;
+    updateToolbar();
     await loadSamples(true);
     render();
   } catch (e) {
@@ -671,6 +672,7 @@ canvas.addEventListener('mousedown', (e) => {
     if (!editable() || polygonDraft.length >= 256) return;
     if (imagePoint.x < 0 || imagePoint.y < 0 || imagePoint.x > imgW || imagePoint.y > imgH) return;
     polygonDraft.push(imagePoint);
+    updateToolbar();
     render();
     return;
   }
