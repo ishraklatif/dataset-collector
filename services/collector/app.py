@@ -571,6 +571,15 @@ def create_app(config=None):
             return jsonify(error='Download link expired or unavailable'),404
         return export(version)
 
+    @app.get('/review')
+    def review_page():
+        response=app.send_static_file('review.html')
+        response.headers['Referrer-Policy']='no-referrer'
+        response.headers['Content-Security-Policy']=("default-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; "
+            "base-uri 'none'; frame-ancestors 'none'")
+        return response
+
     @app.cli.command('migrate')
     def migrate():
         import pathlib

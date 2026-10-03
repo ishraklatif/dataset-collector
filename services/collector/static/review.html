@@ -1,0 +1,899 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Collector Review</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #111; color: #eee; height: 100vh; overflow: hidden; }
+  button { font: inherit; cursor: pointer; }
+  button:disabled { cursor: default; opacity: 0.4; }
+  select, input[type=text], input[type=password] { font: inherit; }
+
+  #login { display: flex; align-items: center; justify-content: center; height: 100vh; }
+  #login form { background: #1c1c1e; padding: 32px; border-radius: 12px; width: 320px; display: flex; flex-direction: column; gap: 12px; }
+  #login h1 { font-size: 18px; margin: 0 0 8px; }
+  #login input { padding: 10px; border-radius: 8px; border: 1px solid #333; background: #000; color: #eee; }
+  #login button { padding: 10px; border-radius: 8px; border: none; background: #0a84ff; color: white; font-weight: 600; }
+  #login .error { color: #ff6961; font-size: 13px; min-height: 16px; }
+
+  #app { display: none; height: 100vh; grid-template-columns: 320px 1fr; grid-template-rows: 48px 1fr; grid-template-areas: "topbar topbar" "sidebar main"; }
+  #app.visible { display: grid; }
+
+  #topbar { grid-area: topbar; display: flex; align-items: center; gap: 12px; padding: 0 16px; background: #1c1c1e; border-bottom: 1px solid #000; }
+  #topbar select { background: #000; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 4px 8px; }
+  #topbar .spacer { flex: 1; }
+  #topbar button { background: none; border: none; color: #0a84ff; }
+  #storageWarning { color: #ff9f0a; font-size: 12px; }
+
+  #sidebar { grid-area: sidebar; overflow-y: auto; background: #18181a; border-right: 1px solid #000; }
+  #counts { padding: 10px 12px; font-size: 12px; color: #999; border-bottom: 1px solid #000; }
+  .sample-row { padding: 10px 12px; border-bottom: 1px solid #000; cursor: pointer; }
+  .sample-row:hover { background: #222; }
+  .sample-row.active { background: #0a3d62; }
+  .sample-row .status { font-size: 13px; font-weight: 600; }
+  .sample-row .labels { font-size: 12px; color: #0a84ff; margin-top: 2px; }
+  .sample-row .meta { font-size: 11px; color: #777; margin-top: 2px; }
+  #loadMore { width: 100%; padding: 10px; background: none; border: none; color: #0a84ff; border-bottom: 1px solid #000; }
+
+  #main { grid-area: main; display: flex; flex-direction: column; min-width: 0; }
+  #canvasWrap { flex: 1; position: relative; background: #000; min-height: 0; overflow: hidden; }
+  #canvasWrap canvas { display: block; width: 100%; height: 100%; }
+  #placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #777; font-size: 14px; text-align: center; padding: 24px; }
+  #zoomControls { position: absolute; right: 12px; bottom: 12px; display: flex; gap: 6px; }
+  #zoomControls button { width: 32px; height: 32px; border-radius: 6px; border: 1px solid #333; background: rgba(0,0,0,0.6); color: #eee; }
+
+  #toolbar { background: #1c1c1e; border-top: 1px solid #000; padding: 10px 16px; display: flex; flex-direction: column; gap: 8px; max-height: 42vh; overflow-y: auto; }
+  #toolbar .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  #toolbar .status-line { font-weight: 600; }
+  #toolbar .archived-badge { color: #ff9f0a; font-size: 12px; }
+  #toolbar button { padding: 6px 10px; border-radius: 6px; border: 1px solid #333; background: #2c2c2e; color: #eee; }
+  #toolbar button.primary { background: #0a84ff; border-color: #0a84ff; color: white; font-weight: 600; }
+  #toolbar button.danger { background: #3a1212; border-color: #ff6961; color: #ff6961; }
+  #toolbar .message { font-size: 13px; color: #ff9f0a; }
+  #toolbar .hint { font-size: 12px; color: #888; }
+  #toolbar label.negative { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  #toolbar select.classSelect { background: #000; color: #eee; border: 1px solid #333; border-radius: 6px; padding: 6px; }
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form id="loginForm">
+    <h1>Collector Review</h1>
+    <input id="loginUsername" type="text" placeholder="Username" autocomplete="username" required>
+    <input id="loginPassword" type="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit">Sign in</button>
+    <div class="error" id="loginError"></div>
+  </form>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <strong>Collector Review</strong>
+    <select id="projectSelect"></select>
+    <div class="spacer"></div>
+    <span id="storageWarning"></span>
+    <button id="logoutButton">Sign out</button>
+  </div>
+  <div id="sidebar">
+    <div id="counts"></div>
+    <div id="sampleList"></div>
+    <button id="loadMore" style="display:none">Load more</button>
+  </div>
+  <div id="main">
+    <div id="canvasWrap">
+      <canvas id="canvas"></canvas>
+      <div id="placeholder">Select a sample from the list to review it.</div>
+      <div id="zoomControls">
+        <button id="zoomOut" title="Zoom out">&minus;</button>
+        <button id="zoomReset" title="Reset zoom">&#9679;</button>
+        <button id="zoomIn" title="Zoom in">+</button>
+      </div>
+    </div>
+    <div id="toolbar"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+const COLLECTOR_CLASSES = ['collection_tube', 'kit_package', 'reply_paid_envelope', 'toilet_liner', 'ziplock_bag'];
+const HIT_TOLERANCE_PX = 10;
+const EDGE_INSERT_TOLERANCE_PX = 10;
+const TRANSLATE_MARGIN_PX = 20;
+
+// ---------- State ----------
+let token = sessionStorage.getItem('collectorToken') || null;
+let projects = [];
+let project = '';
+let health = null;
+let samples = [];
+let nextOffset = null;
+let counts = [];
+
+let currentSample = null;       // SampleDetail from the server
+let annotations = [];           // working copy: {classId,x,y,width,height,points:[{x,y}]|null}
+let explicitNegative = false;
+let selectedIndex = null;
+let addMode = false;
+let addVertexMode = false;
+let polygonDraft = [];          // [{x,y}] in image space, while drawing
+let undoStack = [];
+let edited = false;
+let busy = false;
+let message = '';
+
+let currentImage = null;        // HTMLImageElement
+let currentImageURL = null;     // object URL to revoke on replacement
+let imgW = 0, imgH = 0;
+
+let scale = 1, panX = 0, panY = 0, minScale = 1, maxScale = 1;
+let dragState = null;
+
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// ---------- API ----------
+async function apiRequest(path, opts = {}) {
+  const headers = { 'Authorization': 'Bearer ' + token };
+  let body;
+  if (opts.json !== undefined) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(opts.json); }
+  const res = await fetch(path, { method: opts.method || 'GET', headers, body });
+  if (res.status === 401) { doLogout(); throw new Error('Session expired or revoked'); }
+  if (!res.ok) {
+    let msg = 'Request failed (' + res.status + ')';
+    try { const data = await res.json(); if (data.error) msg = data.error; } catch (e) {}
+    throw new Error(msg);
+  }
+  const ct = res.headers.get('Content-Type') || '';
+  return ct.includes('application/json') ? res.json() : res;
+}
+
+async function fetchImageBlob(id) {
+  const res = await fetch('/v1/samples/' + id + '/image', { headers: { 'Authorization': 'Bearer ' + token } });
+  if (res.status === 401) { doLogout(); throw new Error('Session expired or revoked'); }
+  if (res.status === 410) return null;
+  if (!res.ok) throw new Error('Image unavailable');
+  return res.blob();
+}
+
+// ---------- Auth ----------
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('loginUsername').value;
+  const password = document.getElementById('loginPassword').value;
+  const errorEl = document.getElementById('loginError');
+  errorEl.textContent = '';
+  try {
+    const data = await apiRequest('/v1/login', { method: 'POST', json: { username, password } });
+    token = data.token;
+    sessionStorage.setItem('collectorToken', token);
+    await afterLogin();
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+
+document.getElementById('logoutButton').addEventListener('click', doLogout);
+
+function doLogout() {
+  token = null;
+  sessionStorage.removeItem('collectorToken');
+  document.getElementById('login').style.display = 'flex';
+  document.getElementById('app').classList.remove('visible');
+  currentSample = null;
+}
+
+async function afterLogin() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  await loadHealth();
+  await loadSamples(true);
+  resizeCanvas();
+}
+
+async function boot() {
+  if (!token) return;
+  try { await afterLogin(); } catch (e) { doLogout(); }
+}
+
+// ---------- Health / project ----------
+async function loadHealth() {
+  health = await apiRequest('/v1/health');
+  projects = health.projects;
+  if (!projects.find(p => p.id === project)) project = projects[0] ? projects[0].id : '';
+  const select = document.getElementById('projectSelect');
+  select.innerHTML = '';
+  for (const p of projects) {
+    const opt = document.createElement('option');
+    opt.value = p.id; opt.textContent = p.name;
+    select.appendChild(opt);
+  }
+  select.value = project;
+  const warn = document.getElementById('storageWarning');
+  warn.textContent = health.needs_archive ? 'Database storage is nearly full.' : '';
+}
+
+document.getElementById('projectSelect').addEventListener('change', async (e) => {
+  project = e.target.value;
+  await loadSamples(true);
+});
+
+// ---------- Sample list ----------
+async function loadSamples(reset) {
+  if (!project) return;
+  const offset = reset ? 0 : (nextOffset || 0);
+  const page = await apiRequest('/v1/projects/' + project + '/samples?offset=' + offset);
+  samples = reset ? page.samples : samples.concat(page.samples);
+  nextOffset = page.next_offset;
+  counts = page.counts;
+  renderSampleList();
+}
+
+function labelsFor(sample) {
+  const names = (sample.class_ids || []).map(i => COLLECTOR_CLASSES[i]).filter(Boolean);
+  if (!names.length) return sample.explicit_negative ? 'No objects' : 'Unlabeled';
+  return names.join(', ');
+}
+
+function renderSampleList() {
+  const countsEl = document.getElementById('counts');
+  const total = counts.reduce((s, c) => s + c.count, 0);
+  const pending = (counts.find(c => c.status === 'pending_review') || {}).count || 0;
+  countsEl.textContent = total + ' saved · ' + pending + ' pending review';
+
+  const list = document.getElementById('sampleList');
+  list.innerHTML = '';
+  for (const s of samples) {
+    const row = document.createElement('div');
+    row.className = 'sample-row' + (currentSample && currentSample.id === s.id ? ' active' : '');
+    row.innerHTML =
+      '<div class="status">' + (s.status === 'approved' ? 'Approved' : 'Pending review') +
+        (s.archived_at ? ' · Archived to Drive' : '') + '</div>' +
+      '<div class="labels">' + escapeHtml(labelsFor(s)) + '</div>' +
+      '<div class="meta">' + s.id.slice(0, 8) + ' · session ' + s.session_id.slice(0, 8) + '</div>';
+    row.addEventListener('click', () => openSample(s.id));
+    list.appendChild(row);
+  }
+  document.getElementById('loadMore').style.display = nextOffset != null ? 'block' : 'none';
+}
+
+document.getElementById('loadMore').addEventListener('click', () => loadSamples(false));
+
+function escapeHtml(s) {
+  const div = document.createElement('div'); div.textContent = s; return div.innerHTML;
+}
+
+async function refreshSampleRow(id) {
+  // Cheapest correct refresh: reload the first page's worth; good enough for a review session.
+  await loadSamples(true);
+}
+
+// ---------- Open a sample ----------
+async function openSample(id) {
+  setMessage('');
+  const detail = await apiRequest('/v1/samples/' + id);
+  currentSample = detail;
+  annotations = detail.annotations.map(a => ({
+    classId: a.class_id, x: a.x, y: a.y, width: a.width, height: a.height,
+    points: a.points ? a.points.map(p => ({ x: p.x, y: p.y })) : null,
+  }));
+  explicitNegative = detail.explicit_negative;
+  selectedIndex = null; addMode = false; addVertexMode = false; polygonDraft = []; undoStack = []; edited = false;
+
+  if (currentImageURL) { URL.revokeObjectURL(currentImageURL); currentImageURL = null; }
+  currentImage = null; imgW = detail.width; imgH = detail.height;
+
+  document.getElementById('placeholder').style.display = 'none';
+  renderSampleList();
+
+  if (detail.archived_at) {
+    setMessage("This sample's image was archived to Google Drive and can no longer be reviewed.");
+    updateToolbar(); render();
+    return;
+  }
+
+  let blob;
+  try { blob = await fetchImageBlob(id); }
+  catch (e) { setMessage(e.message); updateToolbar(); return; }
+  if (!blob) { setMessage('Image unavailable.'); updateToolbar(); return; }
+
+  currentImageURL = URL.createObjectURL(blob);
+  await new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { currentImage = img; resolve(); };
+    img.onerror = reject;
+    img.src = currentImageURL;
+  });
+  fitToView();
+  updateToolbar(); render();
+}
+
+function setMessage(text) { message = text; updateToolbar(); }
+
+// ---------- Local mutation helpers (mirror CollectorStore.setBoxes) ----------
+function setAnnotations(value) {
+  undoStack.push(JSON.parse(JSON.stringify(annotations)));
+  if (undoStack.length > 20) undoStack.shift();
+  annotations = value;
+  explicitNegative = false;
+  edited = true;
+  updateToolbar(); render();
+}
+
+function undo() {
+  if (!editable() || !undoStack.length) return;
+  annotations = undoStack.pop();
+  selectedIndex = null; edited = true;
+  updateToolbar(); render();
+}
+
+function removeSelected() {
+  if (selectedIndex == null) return;
+  const copy = annotations.slice();
+  copy.splice(selectedIndex, 1);
+  selectedIndex = null;
+  setAnnotations(copy);
+}
+
+function changeClass(classId) {
+  if (selectedIndex == null) return;
+  const copy = annotations.map(a => Object.assign({}, a));
+  copy[selectedIndex].classId = classId;
+  setAnnotations(copy);
+}
+
+function convertSelectedToPolygon() {
+  if (!editable() || selectedIndex == null) return;
+  const copy = annotations.map(a => Object.assign({}, a));
+  const b = copy[selectedIndex];
+  if (b.points) return;
+  b.points = [
+    { x: b.x, y: b.y }, { x: b.x + b.width, y: b.y },
+    { x: b.x + b.width, y: b.y + b.height }, { x: b.x, y: b.y + b.height },
+  ];
+  setAnnotations(copy);
+}
+
+function cancelPolygon() { polygonDraft = []; addMode = false; updateToolbar(); render(); }
+
+function undoPolygonPoint() {
+  if (!editable() || !polygonDraft.length) return;
+  polygonDraft.pop(); render();
+}
+
+function finishPolygon() {
+  if (!editable() || polygonDraft.length < 3) return;
+  const xs = polygonDraft.map(p => p.x), ys = polygonDraft.map(p => p.y);
+  const left = Math.min(...xs), right = Math.max(...xs), top = Math.min(...ys), bottom = Math.max(...ys);
+  if (right - left <= 1 || bottom - top <= 1) { setMessage('Outline a visible area with at least three distinct points.'); return; }
+  const box = { classId: 0, x: left, y: top, width: right - left, height: bottom - top, points: polygonDraft.map(p => ({ x: p.x, y: p.y })) };
+  const copy = annotations.concat([box]);
+  selectedIndex = copy.length - 1;
+  polygonDraft = []; addMode = false;
+  setAnnotations(copy);
+}
+
+// ---------- Review state helpers (mirror CollectorStore) ----------
+function editable() {
+  return !!currentSample && currentSample.status === 'pending_review' && !busy;
+}
+
+function approvalBlockReason() {
+  if (addMode) return 'Finish or cancel the polygon you are drawing before saving.';
+  if (annotations.some(a => !a.points)) return 'Select each remaining prediction rectangle and convert it to a polygon, or delete it if incorrect. You can save a draft now.';
+  if (annotations.some(a => (a.points ? a.points.length : 0) < 3)) return 'Each polygon needs at least three points before approval.';
+  if (annotations.length === 0 && !explicitNegative) return 'Add an object polygon, or confirm that no target objects are present.';
+  return null;
+}
+
+function stripForSave(a) {
+  const out = { class_id: a.classId, x: a.x, y: a.y, width: a.width, height: a.height };
+  if (a.points) out.points = a.points.map(p => ({ x: p.x, y: p.y }));
+  return out;
+}
+
+async function saveReview(approve) {
+  if (!editable()) return;
+  if (addMode) { setMessage('Finish or cancel the polygon you are drawing before saving.'); return; }
+  if (approve) { const reason = approvalBlockReason(); if (reason) { setMessage(reason); return; } }
+  busy = true; updateToolbar();
+  try {
+    const body = {
+      expected_revision: currentSample.current_revision,
+      status: approve ? 'approved' : 'pending_review',
+      explicit_negative: approve && explicitNegative,
+      annotations: annotations.map(stripForSave),
+    };
+    await apiRequest('/v1/samples/' + currentSample.id + '/review', { method: 'PUT', json: body });
+    setMessage(approve ? 'Review approved and saved to Neon.' : 'Draft annotations saved to Neon.');
+    busy = false;
+    await openSample(currentSample.id);
+    await refreshSampleRow(currentSample.id);
+  } catch (e) {
+    busy = false;
+    setMessage(e.message);
+    updateToolbar();
+  }
+}
+
+async function beginEditing() {
+  if (!currentSample || currentSample.status !== 'approved' || currentSample.archived_at) return;
+  busy = true; updateToolbar();
+  try {
+    await apiRequest('/v1/samples/' + currentSample.id + '/review', {
+      method: 'PUT',
+      json: { expected_revision: currentSample.current_revision, status: 'pending_review', explicit_negative: false, annotations: annotations.map(stripForSave) },
+    });
+    setMessage('Approval invalidated on the server. Changes are drafts until saved.');
+    busy = false;
+    await openSample(currentSample.id);
+    await refreshSampleRow(currentSample.id);
+  } catch (e) {
+    busy = false; setMessage(e.message); updateToolbar();
+  }
+}
+
+async function discardSample() {
+  if (!currentSample) return;
+  if (!confirm('Discard this sample? It will be removed from the list. Existing frozen dataset versions retain it.')) return;
+  busy = true; updateToolbar();
+  try {
+    await apiRequest('/v1/samples/' + currentSample.id, { method: 'DELETE' });
+    currentSample = null; annotations = []; selectedIndex = null;
+    document.getElementById('placeholder').style.display = 'flex';
+    busy = false;
+    await loadSamples(true);
+    render();
+  } catch (e) {
+    busy = false; setMessage(e.message); updateToolbar();
+  }
+}
+
+async function reloadSample() {
+  if (!currentSample) return;
+  await openSample(currentSample.id);
+}
+
+// ---------- Canvas: coordinate transforms ----------
+function imageToViewport(p) { return { x: panX + p.x * scale, y: panY + p.y * scale }; }
+function viewportToImage(p) { return { x: (p.x - panX) / scale, y: (p.y - panY) / scale }; }
+
+function resizeCanvas() {
+  const wrap = document.getElementById('canvasWrap');
+  const dpr = window.devicePixelRatio || 1;
+  const cssW = wrap.clientWidth, cssH = wrap.clientHeight;
+  canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+  canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
+  if (currentImage) clampPan();
+  render();
+}
+window.addEventListener('resize', resizeCanvas);
+
+function fitToView() {
+  const wrap = document.getElementById('canvasWrap');
+  const cssW = wrap.clientWidth, cssH = wrap.clientHeight;
+  const fit = Math.min(cssW / imgW, cssH / imgH) || 1;
+  minScale = fit; maxScale = Math.max(8 * fit, 1); scale = fit;
+  panX = (cssW - imgW * fit) / 2; panY = (cssH - imgH * fit) / 2;
+}
+
+function clampPan() {
+  const wrap = document.getElementById('canvasWrap');
+  const cssW = wrap.clientWidth, cssH = wrap.clientHeight;
+  const w = imgW * scale, h = imgH * scale;
+  panX = w <= cssW ? (cssW - w) / 2 : Math.min(0, Math.max(panX, cssW - w));
+  panY = h <= cssH ? (cssH - h) / 2 : Math.min(0, Math.max(panY, cssH - h));
+}
+
+// ---------- Zoom controls ----------
+document.getElementById('zoomIn').addEventListener('click', () => zoomBy(1.3));
+document.getElementById('zoomOut').addEventListener('click', () => zoomBy(1 / 1.3));
+document.getElementById('zoomReset').addEventListener('click', () => { if (currentImage) { fitToView(); render(); } });
+
+function zoomBy(factor) {
+  if (!currentImage) return;
+  const wrap = document.getElementById('canvasWrap');
+  const center = { x: wrap.clientWidth / 2, y: wrap.clientHeight / 2 };
+  applyZoom(factor, center);
+}
+
+function applyZoom(factor, viewportCenter) {
+  const before = viewportToImage(viewportCenter);
+  scale = Math.min(maxScale, Math.max(minScale, scale * factor));
+  panX = viewportCenter.x - before.x * scale;
+  panY = viewportCenter.y - before.y * scale;
+  clampPan(); render();
+}
+
+canvas.addEventListener('wheel', (e) => {
+  if (!currentImage) return;
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const cursor = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  applyZoom(Math.exp(-e.deltaY * 0.0015), cursor);
+}, { passive: false });
+
+// ---------- Rendering ----------
+function render() {
+  const dpr = window.devicePixelRatio || 1;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!currentImage) return;
+  ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * panX, dpr * panY);
+  ctx.drawImage(currentImage, 0, 0);
+
+  annotations.forEach((a, i) => drawAnnotation(a, i === selectedIndex));
+
+  if (addMode && polygonDraft.length) {
+    ctx.beginPath();
+    ctx.moveTo(polygonDraft[0].x, polygonDraft[0].y);
+    for (const p of polygonDraft.slice(1)) ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = '#ffd60a'; ctx.lineWidth = 3 / scale;
+    if (polygonDraft.length >= 3) ctx.setLineDash([6 / scale, 4 / scale]);
+    ctx.stroke(); ctx.setLineDash([]);
+    for (const p of polygonDraft) drawHandle(p, '#ffd60a', false);
+  }
+}
+
+function shapePath(a) {
+  const path = new Path2D();
+  if (a.points) {
+    path.moveTo(a.points[0].x, a.points[0].y);
+    for (const p of a.points.slice(1)) path.lineTo(p.x, p.y);
+    path.closePath();
+  } else {
+    path.rect(a.x, a.y, a.width, a.height);
+  }
+  return path;
+}
+
+function drawAnnotation(a, selected) {
+  const color = selected ? '#ffd60a' : '#5ac8fa';
+  ctx.strokeStyle = color; ctx.lineWidth = (selected ? 3 : 2) / scale;
+  ctx.stroke(shapePath(a));
+
+  const label = COLLECTOR_CLASSES[a.classId] || 'Unknown';
+  ctx.font = (11 / scale) + 'px -apple-system, sans-serif';
+  const metrics = ctx.measureText(label);
+  const labelW = Math.min(a.width, metrics.width + 8 / scale);
+  ctx.fillStyle = color;
+  ctx.fillRect(a.x, Math.max(0, a.y - 16 / scale), labelW, 16 / scale);
+  ctx.fillStyle = '#000';
+  ctx.fillText(label, a.x + 3 / scale, Math.max(0, a.y - 16 / scale) + 12 / scale);
+
+  if (selected && editable()) {
+    if (a.points) {
+      for (const p of a.points) drawHandle(p, color, true);
+    } else {
+      for (const h of handlePoints(a)) drawHandle(h.point, color, false);
+    }
+  }
+}
+
+function drawHandle(p, color, diamond) {
+  const size = 9 / scale;
+  ctx.fillStyle = color; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.5 / scale;
+  ctx.beginPath();
+  if (diamond) {
+    ctx.moveTo(p.x, p.y - size); ctx.lineTo(p.x + size, p.y); ctx.lineTo(p.x, p.y + size); ctx.lineTo(p.x - size, p.y);
+    ctx.closePath();
+  } else {
+    ctx.rect(p.x - size / 2, p.y - size / 2, size, size);
+  }
+  ctx.fill(); ctx.stroke();
+}
+
+// ---------- Hit testing ----------
+function rectOf(a) { return { x: a.x, y: a.y, w: a.width, h: a.height }; }
+
+function handlePoints(a) {
+  const r = rectOf(a);
+  return [
+    { name: 'topLeft', point: { x: r.x, y: r.y } },
+    { name: 'top', point: { x: r.x + r.w / 2, y: r.y } },
+    { name: 'topRight', point: { x: r.x + r.w, y: r.y } },
+    { name: 'right', point: { x: r.x + r.w, y: r.y + r.h / 2 } },
+    { name: 'bottomRight', point: { x: r.x + r.w, y: r.y + r.h } },
+    { name: 'bottom', point: { x: r.x + r.w / 2, y: r.y + r.h } },
+    { name: 'bottomLeft', point: { x: r.x, y: r.y + r.h } },
+    { name: 'left', point: { x: r.x, y: r.y + r.h / 2 } },
+  ];
+}
+function movesLeft(h) { return h === 'topLeft' || h === 'left' || h === 'bottomLeft'; }
+function movesRight(h) { return h === 'topRight' || h === 'right' || h === 'bottomRight'; }
+function movesTop(h) { return h === 'topLeft' || h === 'top' || h === 'topRight'; }
+function movesBottom(h) { return h === 'bottomLeft' || h === 'bottom' || h === 'bottomRight'; }
+
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+
+function hitVertex(point, a) {
+  if (!a.points) return null;
+  const tol = HIT_TOLERANCE_PX / scale;
+  for (let i = 0; i < a.points.length; i++) if (dist(point, a.points[i]) <= tol) return i;
+  return null;
+}
+
+function hitResizeHandle(point, a) {
+  const tol = HIT_TOLERANCE_PX / scale;
+  for (const h of handlePoints(a)) if (dist(point, h.point) <= tol) return h.name;
+  return null;
+}
+
+function pointInPolygon(point, points) {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+    const pi = points[i], pj = points[j];
+    if (((pi.y > point.y) !== (pj.y > point.y)) &&
+        (point.x < (pj.x - pi.x) * (point.y - pi.y) / (pj.y - pi.y) + pi.x)) inside = !inside;
+  }
+  return inside;
+}
+
+function pointInRect(point, r) { return point.x >= r.x && point.x <= r.x + r.w && point.y >= r.y && point.y <= r.y + r.h; }
+
+function shapeContains(point, a) {
+  return a.points ? pointInPolygon(point, a.points) : pointInRect(point, rectOf(a));
+}
+
+function expandedRect(a, margin) {
+  const r = rectOf(a);
+  return { x: r.x - margin, y: r.y - margin, w: r.w + 2 * margin, h: r.h + 2 * margin };
+}
+
+function nearestEdgePoint(point, points) {
+  let best = null;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i], b = points[(i + 1) % points.length];
+    const dx = b.x - a.x, dy = b.y - a.y, lenSq = dx * dx + dy * dy;
+    const t = lenSq === 0 ? 0 : Math.min(1, Math.max(0, ((point.x - a.x) * dx + (point.y - a.y) * dy) / lenSq));
+    const candidate = { x: a.x + t * dx, y: a.y + t * dy };
+    const d = dist(point, candidate);
+    if (!best || d < best.distance) best = { index: i, point: candidate, distance: d };
+  }
+  return best;
+}
+
+// ---------- Mouse interaction ----------
+function canvasPoint(e) {
+  const rect = canvas.getBoundingClientRect();
+  return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+}
+
+canvas.addEventListener('mousedown', (e) => {
+  if (!currentImage) return;
+  const viewportPoint = canvasPoint(e);
+  const imagePoint = viewportToImage(viewportPoint);
+
+  if (addMode) {
+    if (!editable() || polygonDraft.length >= 256) return;
+    if (imagePoint.x < 0 || imagePoint.y < 0 || imagePoint.x > imgW || imagePoint.y > imgH) return;
+    polygonDraft.push(imagePoint);
+    render();
+    return;
+  }
+  if (addVertexMode) {
+    if (!editable() || selectedIndex == null) return;
+    const a = annotations[selectedIndex];
+    if (!a.points) return;
+    const best = nearestEdgePoint(imagePoint, a.points);
+    if (best && best.distance <= EDGE_INSERT_TOLERANCE_PX / scale) {
+      const copy = annotations.map(x => Object.assign({}, x));
+      const points = copy[selectedIndex].points.slice();
+      points.splice(best.index + 1, 0, best.point);
+      copy[selectedIndex].points = points;
+      setAnnotations(copy);
+    }
+    return;
+  }
+
+  // idle/select mode
+  if (editable() && selectedIndex != null) {
+    const a = annotations[selectedIndex];
+    const v = hitVertex(imagePoint, a);
+    if (v != null) {
+      dragState = { type: 'vertex', index: v, original: JSON.parse(JSON.stringify(a)), start: imagePoint };
+      return;
+    }
+    if (!a.points) {
+      const h = hitResizeHandle(imagePoint, a);
+      if (h) { dragState = { type: 'resize', handle: h, original: JSON.parse(JSON.stringify(a)), start: imagePoint }; return; }
+    }
+    const margin = TRANSLATE_MARGIN_PX / scale;
+    if (shapeContains(imagePoint, a) || pointInRect(imagePoint, expandedRect(a, margin))) {
+      dragState = { type: 'translate', original: JSON.parse(JSON.stringify(a)), start: imagePoint };
+      return;
+    }
+  }
+  // nothing hit: could become a click-to-select, or a pan
+  dragState = { type: 'maybe', startViewport: viewportPoint, startPan: { x: panX, y: panY }, moved: false };
+});
+
+window.addEventListener('mousemove', (e) => {
+  if (!dragState || !currentImage) return;
+  const viewportPoint = canvasPoint(e);
+  const imagePoint = viewportToImage(viewportPoint);
+
+  if (dragState.type === 'vertex') {
+    const copy = annotations.map(x => Object.assign({}, x));
+    const points = dragState.original.points.map(p => Object.assign({}, p));
+    points[dragState.index] = {
+      x: Math.min(imgW, Math.max(0, imagePoint.x)),
+      y: Math.min(imgH, Math.max(0, imagePoint.y)),
+    };
+    copy[selectedIndex].points = points;
+    annotations = copy; render();
+  } else if (dragState.type === 'resize') {
+    const copy = annotations.map(x => Object.assign({}, x));
+    const orig = dragState.original;
+    const dx = imagePoint.x - dragState.start.x, dy = imagePoint.y - dragState.start.y;
+    let left = orig.x, top = orig.y, right = orig.x + orig.width, bottom = orig.y + orig.height;
+    const h = dragState.handle;
+    if (movesLeft(h)) left = Math.max(0, Math.min(orig.x + dx, right - 1));
+    if (movesRight(h)) right = Math.min(imgW, Math.max(orig.x + orig.width + dx, left + 1));
+    if (movesTop(h)) top = Math.max(0, Math.min(orig.y + dy, bottom - 1));
+    if (movesBottom(h)) bottom = Math.min(imgH, Math.max(orig.y + orig.height + dy, top + 1));
+    copy[selectedIndex].x = left; copy[selectedIndex].y = top;
+    copy[selectedIndex].width = right - left; copy[selectedIndex].height = bottom - top;
+    annotations = copy; render();
+  } else if (dragState.type === 'translate') {
+    const copy = annotations.map(x => Object.assign({}, x));
+    const orig = dragState.original;
+    let dx = imagePoint.x - dragState.start.x, dy = imagePoint.y - dragState.start.y;
+    if (orig.points) {
+      const xs = orig.points.map(p => p.x), ys = orig.points.map(p => p.y);
+      const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+      dx = Math.max(-minX, Math.min(dx, imgW - maxX));
+      dy = Math.max(-minY, Math.min(dy, imgH - maxY));
+      copy[selectedIndex].points = orig.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+      const nxs = copy[selectedIndex].points.map(p => p.x), nys = copy[selectedIndex].points.map(p => p.y);
+      copy[selectedIndex].x = Math.min(...nxs); copy[selectedIndex].y = Math.min(...nys);
+      copy[selectedIndex].width = Math.max(...nxs) - Math.min(...nxs);
+      copy[selectedIndex].height = Math.max(...nys) - Math.min(...nys);
+    } else {
+      dx = Math.max(-orig.x, Math.min(dx, imgW - orig.width - orig.x));
+      dy = Math.max(-orig.y, Math.min(dy, imgH - orig.height - orig.y));
+      copy[selectedIndex].x = orig.x + dx; copy[selectedIndex].y = orig.y + dy;
+    }
+    annotations = copy; render();
+  } else if (dragState.type === 'maybe') {
+    const moved = dist(viewportPoint, dragState.startViewport) > 4;
+    if (moved) {
+      dragState.type = 'pan';
+      dragState.panned = true;
+    }
+  } else if (dragState.type === 'pan') {
+    panX = dragState.startPan.x + (viewportPoint.x - dragState.startViewport.x);
+    panY = dragState.startPan.y + (viewportPoint.y - dragState.startViewport.y);
+    clampPan(); render();
+  }
+});
+
+window.addEventListener('mouseup', (e) => {
+  if (!dragState) return;
+  if (dragState.type === 'vertex' || dragState.type === 'resize' || dragState.type === 'translate') {
+    setAnnotations(annotations);
+  } else if (dragState.type === 'maybe') {
+    // a click: select by smallest area, or deselect
+    const viewportPoint = canvasPoint(e);
+    const imagePoint = viewportToImage(viewportPoint);
+    const hits = annotations.map((a, i) => ({ a, i })).filter(({ a }) => shapeContains(imagePoint, a));
+    if (hits.length) {
+      hits.sort((p, q) => (p.a.width * p.a.height) - (q.a.width * q.a.height));
+      selectedIndex = hits[0].i;
+    } else {
+      selectedIndex = null;
+    }
+    addVertexMode = false;
+    updateToolbar(); render();
+  }
+  dragState = null;
+});
+
+// ---------- Toolbar ----------
+const toolbar = document.getElementById('toolbar');
+
+function updateToolbar() {
+  if (!currentSample) { toolbar.innerHTML = ''; return; }
+  const archived = !!currentSample.archived_at;
+  const approved = currentSample.status === 'approved';
+  const canEdit = editable();
+  const selected = selectedIndex != null ? annotations[selectedIndex] : null;
+
+  let html = '';
+  html += '<div class="row">';
+  html += '<span class="status-line">' + (approved ? 'Approved review' : 'Pending review') + '</span>';
+  if (archived) html += '<span class="archived-badge">Archived to Google Drive</span>';
+  if (edited && !archived) html += '<span class="hint" style="color:#ff9f0a">Unsaved edits</span>';
+  html += '</div>';
+
+  if (archived) {
+    html += '<div class="hint">This sample\'s image was archived to Google Drive and can no longer be reviewed.</div>';
+  } else if (approved) {
+    html += '<div class="row"><button id="btnEdit">Edit annotations · mark pending</button></div>';
+  } else {
+    html += '<div class="row">';
+    html += '<button id="btnAddPolygon">' + (addMode ? 'Cancel polygon' : 'Add polygon') + '</button>';
+    html += '<button id="btnUndo" ' + (undoStack.length ? '' : 'disabled') + '>Undo</button>';
+    html += '<button id="btnDelete" class="danger" ' + (selectedIndex == null ? 'disabled' : '') + '>Delete</button>';
+    html += '</div>';
+
+    if (addMode) {
+      html += '<div class="row">';
+      html += '<button id="btnUndoPoint" ' + (polygonDraft.length ? '' : 'disabled') + '>Undo point</button>';
+      html += '<span>' + polygonDraft.length + ' points</span>';
+      html += '<button id="btnFinishPolygon" ' + (polygonDraft.length >= 3 ? '' : 'disabled') + '>Finish polygon</button>';
+      html += '</div>';
+      html += '<div class="hint">Click around the object outline, then finish with at least 3 points.</div>';
+    }
+
+    if (selected) {
+      html += '<div class="row">';
+      if (!selected.points) {
+        html += '<button id="btnConvert">Convert box to polygon</button>';
+      } else {
+        html += '<button id="btnAddVertex">' + (addVertexMode ? 'Done adding vertices' : 'Add vertex') + '</button>';
+      }
+      html += '<select id="classSelect" class="classSelect">';
+      COLLECTOR_CLASSES.forEach((name, i) => {
+        html += '<option value="' + i + '"' + (selected.classId === i ? ' selected' : '') + '>' + name + '</option>';
+      });
+      html += '</select>';
+      html += '</div>';
+    }
+
+    html += '<div class="row"><label class="negative"><input type="checkbox" id="negativeCheck" ' + (explicitNegative ? 'checked' : '') + '> No target objects in this image</label></div>';
+
+    const reason = approvalBlockReason();
+    if (reason) html += '<div class="message">' + escapeHtml(reason) + '</div>';
+
+    html += '<div class="row">';
+    html += '<button id="btnSaveDraft" ' + (canEdit && !addMode ? '' : 'disabled') + '>Save draft</button>';
+    html += '<button id="btnApprove" class="primary" ' + (canEdit && !addMode && !reason ? '' : 'disabled') + '>Approve</button>';
+    html += '</div>';
+  }
+
+  if (!archived) {
+    html += '<div class="row"><button id="btnDiscard" class="danger">Discard sample</button></div>';
+  }
+  if (message && !archived && !approvalBlockReason()) html += '<div class="message">' + escapeHtml(message) + '</div>';
+  else if (message && archived) {} // already shown above
+  else if (message) {} // shown as block reason
+
+  toolbar.innerHTML = html;
+  wireToolbar();
+}
+
+function wireToolbar() {
+  const byId = (id) => document.getElementById(id);
+  if (byId('btnEdit')) byId('btnEdit').addEventListener('click', beginEditing);
+  if (byId('btnAddPolygon')) byId('btnAddPolygon').addEventListener('click', () => {
+    addVertexMode = false;
+    if (addMode) cancelPolygon(); else { polygonDraft = []; addMode = true; updateToolbar(); render(); }
+  });
+  if (byId('btnUndo')) byId('btnUndo').addEventListener('click', undo);
+  if (byId('btnDelete')) byId('btnDelete').addEventListener('click', removeSelected);
+  if (byId('btnUndoPoint')) byId('btnUndoPoint').addEventListener('click', undoPolygonPoint);
+  if (byId('btnFinishPolygon')) byId('btnFinishPolygon').addEventListener('click', finishPolygon);
+  if (byId('btnConvert')) byId('btnConvert').addEventListener('click', convertSelectedToPolygon);
+  if (byId('btnAddVertex')) byId('btnAddVertex').addEventListener('click', () => {
+    addVertexMode = !addVertexMode;
+    if (addVertexMode) cancelPolygon(); else { updateToolbar(); render(); }
+  });
+  if (byId('classSelect')) byId('classSelect').addEventListener('change', (e) => changeClass(parseInt(e.target.value, 10)));
+  if (byId('negativeCheck')) byId('negativeCheck').addEventListener('change', (e) => {
+    explicitNegative = e.target.checked; edited = true; updateToolbar();
+  });
+  if (byId('btnSaveDraft')) byId('btnSaveDraft').addEventListener('click', () => saveReview(false));
+  if (byId('btnApprove')) byId('btnApprove').addEventListener('click', () => saveReview(true));
+  if (byId('btnDiscard')) byId('btnDiscard').addEventListener('click', discardSample);
+}
+
+// ---------- Boot ----------
+resizeCanvas();
+boot();
+</script>
+</body>
+</html>

@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements-prod.txt \
 
 COPY app.py domain.py drive.py gunicorn.conf.py ./
 COPY migrations ./migrations
+COPY static ./static
 
 USER collector
 EXPOSE 8000
