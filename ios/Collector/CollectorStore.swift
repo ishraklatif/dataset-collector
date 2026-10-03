@@ -124,13 +124,25 @@ import Network
         struct Sessions:Decodable {let sessions:[CaptureSession]}
         sessions=try await api.get("/v1/projects/\(project)/sessions",as:Sessions.self).sessions
         if !sessions.contains(where:{$0.id==sessionID}) {sessionID=""}
-        let p=try await api.get("/v1/projects/\(project)/samples",as:SamplePage.self);page=p;samples=p.samples
+        try await fetchSamples()
         struct Versions:Decodable {let versions:[DatasetVersion]}
         versions=try await api.get("/v1/projects/\(project)/versions",as:Versions.self).versions
     }
     func loadMore() async {
         guard let offset=page?.next_offset else {return}
         await perform {let p=try await api.get("/v1/projects/\(project)/samples?offset=\(offset)",as:SamplePage.self);page=p;samples+=p.samples}
+    }
+    // Refetches as many pages as were already loaded, so a periodic refresh never
+    // truncates a scrolled "Load more" list back down to the first page.
+    private func fetchSamples() async throws {
+        let keep=max(samples.count,50)
+        var all:[SampleSummary]=[];var offset=0;var latest:SamplePage
+        repeat {
+            latest=try await api.get("/v1/projects/\(project)/samples?offset=\(offset)",as:SamplePage.self)
+            all+=latest.samples
+            offset=latest.next_offset ?? -1
+        } while offset>=0 && all.count<keep
+        page=latest;samples=all
     }
     func createSession() async {
         await perform {
