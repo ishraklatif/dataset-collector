@@ -1,0 +1,41 @@
+# Image-backed Render Web Service. Create through the Render Dashboard; this
+# workspace intentionally has no Git remote. Replace the image URL and enter
+# secret values in Render's Environment page.
+services:
+  - type: web
+    name: eachpath-ar-collector
+    runtime: image
+    plan: starter
+    region: ohio
+    image:
+      url: docker.io/YOUR_DOCKERHUB_USERNAME/eachpath-ar-collector:2026-10-02
+    healthCheckPath: /healthz
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: MAX_IMAGE_BYTES
+        value: '12582912'
+      - key: MAX_IMAGE_DIMENSION
+        value: '4096'
+      - key: MAX_EXPORT_SAMPLES
+        value: '5000'
+      - key: DB_POOL_SIZE
+        value: '4'
+      - key: DB_BYTE_LIMIT
+        value: '1073741824'
+      - key: ARCHIVE_PROMPT_RATIO
+        value: '0.95'
+      - key: MAX_ARCHIVE_SAMPLES
+        value: '50'
+      - key: MAX_ARCHIVE_BYTES
+        value: '157286400'
+      - key: GOOGLE_OAUTH_CLIENT_ID
+        sync: false
+      - key: GOOGLE_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: GOOGLE_DRIVE_FOLDER_ID
+        sync: false
