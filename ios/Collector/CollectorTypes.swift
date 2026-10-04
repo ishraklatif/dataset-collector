@@ -113,9 +113,39 @@ func decodeCollector(_ main:[Float],proto:[Float],source:CGSize) throws -> [Anno
         let xs=canonicalPoints.map(\.x),ys=canonicalPoints.map(\.y)
         guard let left=xs.min(),let right=xs.max(),let top=ys.min(),let bottom=ys.max(),right>left,bottom>top else { continue }
         let points=canonicalPoints.map {AnnotationPoint(x:Double($0.x),y:Double($0.y))}
+        // Model outlines are only suggestions. A malformed mask contour must not
+        // prevent the photo from being uploaded for manual annotation in review.
+        guard isUploadableProposal(points) else { continue }
         results.append(Annotation(classID:cand.classID,x:Double(left),y:Double(top),width:Double(right-left),height:Double(bottom-top),points:points,confidence:cand.confidence))
     }
     return results
+}
+
+private func isUploadableProposal(_ points:[AnnotationPoint])->Bool {
+    guard (3...256).contains(points.count),Set(points.map {"\($0.x),\($0.y)"}).count>=3 else {return false}
+    let area=points.indices.reduce(0.0) {sum,i in
+        let a=points[i],b=points[(i+1)%points.count]
+        return sum+a.x*b.y-b.x*a.y
+    }
+    guard area.isFinite,abs(area)>1e-6 else {return false}
+    func orient(_ a:AnnotationPoint,_ b:AnnotationPoint,_ c:AnnotationPoint)->Double {
+        (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)
+    }
+    func onSegment(_ a:AnnotationPoint,_ b:AnnotationPoint,_ c:AnnotationPoint)->Bool {
+        min(a.x,b.x)-1e-9<=c.x && c.x<=max(a.x,b.x)+1e-9 && min(a.y,b.y)-1e-9<=c.y && c.y<=max(a.y,b.y)+1e-9
+    }
+    func intersects(_ a:AnnotationPoint,_ b:AnnotationPoint,_ c:AnnotationPoint,_ d:AnnotationPoint)->Bool {
+        let o1=orient(a,b,c),o2=orient(a,b,d),o3=orient(c,d,a),o4=orient(c,d,b)
+        return (o1*o2<0 && o3*o4<0) || (abs(o1)<1e-9 && onSegment(a,b,c)) || (abs(o2)<1e-9 && onSegment(a,b,d)) || (abs(o3)<1e-9 && onSegment(c,d,a)) || (abs(o4)<1e-9 && onSegment(c,d,b))
+    }
+    for i in points.indices {
+        let a=points[i],b=points[(i+1)%points.count]
+        for j in points.indices where j>i {
+            if j==i || j==(i+1)%points.count || (j+1)%points.count==i {continue}
+            if intersects(a,b,points[j],points[(j+1)%points.count]) {return false}
+        }
+    }
+    return true
 }
 
 enum CollectorError:LocalizedError {
